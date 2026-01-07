@@ -1,0 +1,43 @@
+name: Build httping Package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Prepare OpenWrt SDK (x86_64)
+      run: |
+        # 使用 OpenWrt 23.05 x86/64 SDK (兼容性较好)
+        wget https://downloads.openwrt.org/releases/23.05.2/targets/x86/64/openwrt-sdk-23.05.2-x86-64_gcc-12.3.0_musl.Linux-x86_64.tar.xz
+        tar -xf openwrt-sdk-*.tar.xz
+        mv openwrt-sdk-* sdk
+        
+    - name: Update Feeds & Install Package
+      run: |
+        cd sdk
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        # 将当前仓库链接为 package
+        ln -s $GITHUB_WORKSPACE package/luci-app-httping
+
+    - name: Compile Package
+      run: |
+        cd sdk
+        make defconfig
+        # 编译插件，V=s 打印详细日志以便除错
+        make package/luci-app-httping/compile V=s
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: luci-app-httping-ipk
+        path: sdk/bin/packages/x86_64/base/luci-app-httping_*.ipk

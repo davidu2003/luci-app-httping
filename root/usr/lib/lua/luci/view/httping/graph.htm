@@ -36,33 +36,42 @@
 
     .chart-div {
         width: 100%;
-        height: 300px; /* 每个图表的高度 */
+        height: 300px;
     }
 
-    /* 按钮组样式 */
-    .btn-group { display: flex; gap: 5px; flex-wrap: wrap; }
+    /* 按钮组与输入框样式 */
+    .control-group { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     
-    /* 深浅模式 CSS 变量定义 */
+    input[type="datetime-local"] {
+        padding: 5px;
+        border: 1px solid var(--border-color, #ccc);
+        border-radius: 4px;
+        background: var(--input-bg, #fff);
+        color: var(--text-color, #333);
+    }
+
+    /* 深浅模式 CSS 变量 */
     :root {
         --toolbar-bg: #f8f8f8;
         --chart-bg: #fff;
         --border-color: #ddd;
         --text-color: #333;
+        --input-bg: #fff;
     }
 
-    /* 适配 LuCI Argon 等主题的深色模式 (通过 media query) */
     @media (prefers-color-scheme: dark) {
         :root {
             --toolbar-bg: #2a2a2a;
             --chart-bg: #333;
             --border-color: #444;
             --text-color: #eee;
+            --input-bg: #444;
         }
     }
 
     /* 按钮通用样式 */
     .cbi-button-custom {
-        padding: 6px 14px;
+        padding: 6px 12px;
         cursor: pointer;
         border-radius: 4px;
         font-size: 13px;
@@ -72,43 +81,51 @@
     .btn-neutral { background: #eee; color: #333; }
     .btn-active { background: #0069d6; color: #fff; }
     
-    /* 深色模式下按钮微调 */
     @media (prefers-color-scheme: dark) {
         .btn-neutral { background: #444; color: #eee; border-color: #555; }
     }
     
-    .status-text { font-size: 12px; color: var(--text-color); opacity: 0.7; }
+    .status-text { font-size: 12px; color: var(--text-color); opacity: 0.7; margin-left: 10px;}
 </style>
 
 <h2><%=translate("网络延迟趋势图")%></h2>
 
 <div class="toolbar-container">
-    <div class="btn-group" id="preset-buttons">
-        <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(1, this)">1小时</button>
-        <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(6, this)">6小时</button>
-        <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(24, this)">24小时</button>
-        <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(168, this)">7天</button>
-        <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(720, this)">1月</button>
-    </div>
-    
-    <div style="display:flex; align-items:center; gap:10px;">
-        <span class="status-text" id="status-text">就绪</span>
+    <div style="display:flex; flex-direction:column; gap:10px; width:100%;">
+        <!-- 预设时间按钮 -->
+        <div class="control-group" id="preset-buttons">
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(1, this)">1小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(6, this)">6小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(24, this)">24小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(168, this)">7天</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(720, this)">1月</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(2160, this)">3月</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(4320, this)">6月</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(8760, this)">1年</button>
+        </div>
+
+        <!-- 自定义时间与状态 -->
+        <div class="control-group" style="border-top: 1px solid var(--border-color); padding-top: 10px;">
+            <span style="color: var(--text-color); font-size: 13px;">自定义范围:</span>
+            <input type="datetime-local" id="start-time">
+            <span style="color: var(--text-color);">-</span>
+            <input type="datetime-local" id="end-time">
+            <button class="cbi-button-custom btn-active" onclick="setCustomTime()">查询</button>
+            <span class="status-text" id="status-text">就绪</span>
+        </div>
     </div>
 </div>
 
-<!-- 这里不再是一个固定的 div，而是一个容器，用于动态插入多个图表 -->
 <div id="charts-container"></div>
 
 <script type="text/javascript">
     var api_url = '<%=luci.dispatcher.build_url("admin", "services", "httping", "get_data")%>';
-    var chartsInstances = []; // 存储所有的 echarts 实例
+    var chartsInstances = [];
 
-    // 检测深色模式
     function isDarkMode() {
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
 
-    // 获取深浅模式配置
     function getChartTheme() {
         var isDark = isDarkMode();
         return {
@@ -122,29 +139,24 @@
 
     function renderCharts(rawData) {
         var container = document.getElementById('charts-container');
-        container.innerHTML = ""; // 清空旧图表
-        chartsInstances.forEach(c => c.dispose()); // 销毁旧实例
+        container.innerHTML = "";
+        chartsInstances.forEach(c => c.dispose());
         chartsInstances = [];
 
         if (!rawData || rawData.length === 0) {
-            container.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">暂无数据，请检查服务器设置或等待数据生成。</div>';
+            container.innerHTML = '<div style="padding:40px; text-align:center; color:gray;">当前时间段暂无数据。</div>';
             return;
         }
 
-        // 1. 数据分组
         var groupedData = {};
         rawData.forEach(function(item) {
-            if (!groupedData[item.server_name]) {
-                groupedData[item.server_name] = [];
-            }
+            if (!groupedData[item.server_name]) groupedData[item.server_name] = [];
             groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
         });
 
         var theme = getChartTheme();
 
-        // 2. 遍历每个服务器，生成独立的图表
         Object.keys(groupedData).forEach(function(serverName) {
-            // 创建 DOM 结构
             var wrapper = document.createElement('div');
             wrapper.className = 'chart-wrapper';
             
@@ -159,12 +171,10 @@
             wrapper.appendChild(chartDiv);
             container.appendChild(wrapper);
 
-            // 初始化 ECharts
             var myChart = echarts.init(chartDiv);
             chartsInstances.push(myChart);
 
             var option = {
-                // 根据深浅模式设置背景色 (transparent 让 CSS 控制背景)
                 backgroundColor: 'transparent',
                 tooltip: {
                     trigger: 'axis',
@@ -173,7 +183,7 @@
                     formatter: function (params) {
                         var val = params[0].value[1];
                         return params[0].axisValueLabel + '<br/>' + 
-                               params[0].marker + val.toFixed(1) + ' ms';
+                               params[0].marker + (val !== null ? val.toFixed(1) + ' ms' : '超时');
                     }
                 },
                 grid: { left: '50', right: '20', top: '10', bottom: '30' },
@@ -186,72 +196,4 @@
                 },
                 yAxis: {
                     type: 'value',
-                    scale: true,
-                    axisLabel: { color: theme.textColor, formatter: '{value} ms' },
-                    splitLine: { lineStyle: { color: theme.splitLine } }
-                },
-                series: [{
-                    name: serverName,
-                    type: 'line',
-                    connectNulls: false, // 断点不连线
-                    showSymbol: false,
-                    smooth: true,
-                    sampling: 'lttb',
-                    itemStyle: { color: theme.seriesColor },
-                    areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: 'rgba(0, 105, 214, 0.3)' },
-                            { offset: 1, color: 'rgba(0, 105, 214, 0.01)' }
-                        ])
-                    },
-                    data: groupedData[serverName]
-                }]
-            };
-
-            myChart.setOption(option);
-        });
-    }
-
-    function fetchData(startTs, endTs) {
-        document.getElementById('status-text').innerText = "加载数据中...";
-        fetch(api_url + '?start=' + startTs + '&end=' + endTs)
-            .then(res => res.json())
-            .then(json => {
-                document.getElementById('status-text').innerText = "更新于 " + new Date().toLocaleTimeString();
-                renderCharts(json);
-            })
-            .catch(err => {
-                console.error(err);
-                document.getElementById('status-text').innerText = "加载失败";
-            });
-    }
-
-    function setRelativeTime(hours, btn) {
-        // 按钮样式切换
-        var btns = document.querySelectorAll('#preset-buttons button');
-        btns.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
-        if(btn) { btn.classList.remove('btn-neutral'); btn.classList.add('btn-active'); }
-
-        var end = Math.floor(Date.now() / 1000);
-        var start = end - (hours * 3600);
-        fetchData(start, end);
-    }
-
-    // 监听系统深色模式切换，自动重绘
-    window.matchMedia('(prefers-color-scheme: dark)').addListener(function(e) {
-        // 重新获取当前选中的时间范围（这里简单处理，直接刷新当前页面或者重新触发查询）
-        // 为了简单，我们只触发最后一次点击的按钮逻辑，或者直接刷新页面
-        location.reload(); 
-    });
-
-    // 默认加载1小时
-    document.addEventListener('DOMContentLoaded', function() {
-        var firstBtn = document.querySelector('#preset-buttons button');
-        setRelativeTime(1, firstBtn);
-    });
-
-    window.addEventListener('resize', function() {
-        chartsInstances.forEach(c => c.resize());
-    });
-</script>
-<%+footer%>
+                    scale: true

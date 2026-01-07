@@ -1,25 +1,30 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-httping
-PKG_VERSION:=1.0.1
+PKG_VERSION:=1.0.2
 PKG_RELEASE:=1
 
-PKG_MAINTAINER:=YourName
+PKG_MAINTAINER:=No Name
 PKG_LICENSE:=MIT
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/luci-app-httping
-	SECTION:=luci
-	CATEGORY:=LuCI
-	SUBMENU:=3. Applications
-	TITLE:=LuCI support for Network Latency Monitor (HTTPing)
-	PKGARCH:=all
-	DEPENDS:=+luci-base +luci-lib-jsonc +curl +sqlite3-cli
+  SECTION:=luci
+  CATEGORY:=LuCI
+  SUBMENU:=3. Applications
+  TITLE:=LuCI support for Network Latency Monitor (HTTPing)
+  PKGARCH:=all
+  DEPENDS:=+luci-base +luci-lib-jsonc +curl +sqlite3-cli
 endef
 
 define Package/luci-app-httping/description
-	A LuCI plugin to monitor network latency using HTTP requests.
+  A LuCI plugin to monitor network latency using HTTP requests.
+endef
+
+# 【新增】这里告诉 opkg，这个文件是配置文件，升级时不要覆盖！
+define Package/luci-app-httping/conffiles
+/etc/config/httping
 endef
 
 define Build/Compile
@@ -45,12 +50,12 @@ endef
 define Package/luci-app-httping/postinst
 #!/bin/sh
 if [ -z "$${IPKG_INSTROOT}" ]; then
-		chmod +x /usr/bin/httping-daemon.sh
-		chmod +x /etc/init.d/httping
-		/etc/init.d/httping enable
-		/etc/init.d/httping start
-		rm -rf /tmp/luci-modulecache/
-		rm -f /tmp/luci-indexcache
+    chmod +x /usr/bin/httping-daemon.sh
+    chmod +x /etc/init.d/httping
+    /etc/init.d/httping enable
+    /etc/init.d/httping start
+    rm -rf /tmp/luci-modulecache/
+    rm -f /tmp/luci-indexcache
 fi
 exit 0
 endef
@@ -58,8 +63,8 @@ endef
 define Package/luci-app-httping/prerm
 #!/bin/sh
 if [ -z "$${IPKG_INSTROOT}" ]; then
-		/etc/init.d/httping stop
-		/etc/init.d/httping disable
+    /etc/init.d/httping stop
+    /etc/init.d/httping disable
 fi
 exit 0
 endef

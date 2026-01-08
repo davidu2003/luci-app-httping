@@ -42,9 +42,11 @@
     .control-group {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 15px;
         align-items: center;
     }
+
+    /* gap 加大一点 */
 
     input[type="datetime-local"] {
         padding: 5px;
@@ -54,15 +56,29 @@
         color: var(--text-color, #333);
     }
 
-    /* 复选框样式 */
+    /* 复选框样式修正：完美垂直对齐 */
     .checkbox-label {
         font-size: 13px;
         color: var(--text-color);
         display: flex;
         align-items: center;
-        gap: 5px;
+        /* 关键：Flex 垂直居中 */
+        gap: 6px;
         cursor: pointer;
         user-select: none;
+        line-height: 1;
+        /* 防止行高导致偏移 */
+    }
+
+    .checkbox-label input {
+        margin: 0;
+        /* 去除浏览器默认 margin */
+        padding: 0;
+        width: 14px;
+        height: 14px;
+        position: relative;
+        top: -1px;
+        /* 微调：视觉上可能需要向上 1px */
     }
 
     /* 服务器筛选标签样式 */
@@ -202,11 +218,16 @@
             <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(4320, this)">6月</button>
             <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(8760, this)">1年</button>
         </div>
-        <!-- 自动刷新开关 -->
+
+        <!-- 自动刷新与削峰开关 -->
         <div class="control-group">
             <label class="checkbox-label">
                 <input type="checkbox" id="auto-refresh-check" onchange="toggleAutoRefresh()" checked>
-                自动刷新 (10s)
+                <span>自动刷新 (10s)</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="clip-peaks-check" onchange="toggleClipping()">
+                <span>削峰 (平滑)</span>
             </label>
         </div>
     </div>
@@ -237,10 +258,10 @@
     var cachedData = [];
     var activeServers = new Set();
 
-    // 自动刷新相关变量
     var refreshTimer = null;
-    var currentRelativeHours = 12; // 记录当前选择的相对时间长度
-    var isCustomMode = false;      // 是否处于自定义时间模式
+    var currentRelativeHours = 12;
+    var isCustomMode = false;
+    var isClippingMode = false; // 削峰模式状态
 
     var colorPalette = [
         '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'
@@ -272,21 +293,58 @@
         var lossData = {};
         var serverStats = {};
 
+        // 1. 先进行一次分组，方便计算 P95
+        var rawGrouped = {};
+        cachedData.forEach(function (item) {
+            if (!rawGrouped[item.server_name]) rawGrouped[item.server_name] = [];
+            rawGrouped[item.server_name].push(item.duration);
+
+            // 统计基础信息
+            if (!serverStats[item.server_name]) serverStats[item.server_name] = { total: 0, loss: 0 };
+            serverStats[item.server_name].total++;
+            if (item.duration === null) serverStats[item.server_name].loss++;
+        });
+
+        // 2. 如果开启削峰，计算每个服务器的 P95 阈值
+        var thresholds = {};
+        if (isClippingMode) {
+            Object.keys(rawGrouped).forEach(function (name) {
+                // 过滤出有效数值并排序
+                var values = rawGrouped[name].filter(v => v !== null).sort((a, b) => a - b);
+                if (values.length > 0) {
+                    var idx = Math.floor(values.length * 0.95); // 取 95% 分位数
+                    thresholds[name] = values[idx];
+                } else {
+                    thresholds[name] = 9999;
+                }
+            });
+        }
+
+        // 3. 构建图表数据
         cachedData.forEach(function (item) {
             if (!groupedData[item.server_name]) {
                 groupedData[item.server_name] = [];
                 lossData[item.server_name] = [];
-                serverStats[item.server_name] = { total: 0, loss: 0 };
             }
-
-            serverStats[item.server_name].total++;
 
             if (item.duration === null) {
-                serverStats[item.server_name].loss++;
                 lossData[item.server_name].push([item.timestamp * 1000, 0]);
+                // 丢包时折线断开，不需要 push 到 groupedData (ECharts 默认 null 不连线)
+            } else {
+                var finalDuration = item.duration;
+                // 削峰逻辑
+                if (isClippingMode && thresholds[item.server_name] && finalDuration > thresholds[item.server_name]) {
+                    // 标记为削峰点，ECharts 可以通过 extra 属性或者 value 判断
+                    // 这里我们直接 clamp 到阈值，为了 Tooltip 显示，我们可能需要特殊处理
+                    // 但简单起见，直接修改值。
+                    groupedData[item.server_name].push({
+                        value: [item.timestamp * 1000, thresholds[item.server_name]],
+                        rawVal: finalDuration // 保留原始值供 Tooltip 使用
+                    });
+                } else {
+                    groupedData[item.server_name].push([item.timestamp * 1000, finalDuration]);
+                }
             }
-
-            groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
         });
 
         renderFilterChips(serverStats);
@@ -296,7 +354,6 @@
     function renderFilterChips(stats) {
         var container = document.getElementById('server-filters');
 
-        // 记录当前的滚动位置，防止刷新时跳动（虽然这里是重建DOM，但影响不大）
         container.innerHTML = '<span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>';
 
         Object.keys(stats).forEach(function (name) {
@@ -330,22 +387,15 @@
             activeServers.add(name);
             element.classList.add('active');
         }
+        // 使用缓存数据重新处理，因为削峰等逻辑需要重新计算
+        processAndRender(cachedData);
+    }
 
-        // 重新构建数据 (客户端过滤)
-        var groupedData = {};
-        var lossData = {};
-        cachedData.forEach(function (item) {
-            if (!groupedData[item.server_name]) {
-                groupedData[item.server_name] = [];
-                lossData[item.server_name] = [];
-            }
-            if (item.duration === null) {
-                lossData[item.server_name].push([item.timestamp * 1000, 0]);
-            }
-            groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
-        });
-
-        updateChartDisplay(groupedData, lossData);
+    function toggleClipping() {
+        var checkbox = document.getElementById('clip-peaks-check');
+        isClippingMode = checkbox.checked;
+        // 重新处理数据渲染图表
+        processAndRender(cachedData);
     }
 
     function updateChartDisplay(groupedData, lossData) {
@@ -398,8 +448,7 @@
         });
 
         if (seriesList.length === 0 && isFilterMode) {
-            // 静默刷新时不显示Loading，只有初始化可能用到
-            // 这里为了体验，可以不clear，保留旧图表，或者显示空
+            // silent
         }
 
         var option = {
@@ -412,9 +461,19 @@
                     var html = params[0].axisValueLabel + '<br/>';
                     params.forEach(item => {
                         if (item.seriesType === 'line') {
-                            var val = item.value[1];
+                            var val, displayVal;
+
+                            // 检查是否是削峰数据 (对象结构)
+                            if (typeof item.data === 'object' && item.data.rawVal !== undefined) {
+                                val = item.data.value[1]; // 削峰后的值
+                                displayVal = val.toFixed(1) + ' ms <span style="color:#aaa;font-size:11px;">(已削峰)</span>';
+                            } else {
+                                val = item.value[1];
+                                displayVal = val !== null ? val.toFixed(1) + ' ms' : '<span style="color:#ff4d4f;font-weight:bold;">丢包</span>';
+                            }
+
                             var colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${item.color};"></span>`;
-                            html += `${colorSpan}${item.seriesName}: ${val !== null ? val.toFixed(1) + ' ms' : '<span style="color:#ff4d4f;font-weight:bold;">丢包</span>'}<br/>`;
+                            html += `${colorSpan}${item.seriesName}: ${displayVal}<br/>`;
                         }
                     });
                     return html;
@@ -452,7 +511,6 @@
         myChart.setOption(option, true);
     }
 
-    // 增加 isSilent 参数，用于自动刷新时不显示 Loading 动画
     function fetchData(startTs, endTs, isSilent) {
         if (!myChart) initChart();
 
@@ -477,41 +535,34 @@
 
     function setRelativeTime(hours, btnElement) {
         isCustomMode = false;
-        currentRelativeHours = hours; // 记录当前选择
+        currentRelativeHours = hours;
 
         var buttons = document.querySelectorAll('#preset-buttons button');
         buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
         if (btnElement) { btnElement.classList.remove('btn-neutral'); btnElement.classList.add('btn-active'); }
 
-        performQuery(false); // 手动点击显示Loading
+        performQuery(false);
     }
 
     function setCustomTime() {
         isCustomMode = true;
-        // 清除按钮状态
         var buttons = document.querySelectorAll('#preset-buttons button');
         buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
-
         performQuery(false);
     }
 
-    // 执行查询的核心函数
     function performQuery(isSilent) {
         var start, end;
-
         if (isCustomMode) {
-            // 自定义模式：时间范围固定，自动刷新意义不大，但也可以刷新该范围内是否有新数据修正
             var startVal = document.getElementById('start-time').value;
             var endVal = document.getElementById('end-time').value;
             if (!startVal || !endVal) return;
             start = Math.floor(new Date(startVal).getTime() / 1000);
             end = Math.floor(new Date(endVal).getTime() / 1000);
         } else {
-            // 相对模式：时间随当前时间流动
             end = Math.floor(Date.now() / 1000);
             start = end - (currentRelativeHours * 3600);
 
-            // 更新输入框显示
             var toLocalISO = function (ts) {
                 var d = new Date(ts * 1000);
                 var offset = d.getTimezoneOffset() * 60000;
@@ -520,48 +571,34 @@
             document.getElementById('start-time').value = toLocalISO(start);
             document.getElementById('end-time').value = toLocalISO(end);
         }
-
         fetchData(start, end, isSilent);
     }
 
-    // 自动刷新逻辑
     function toggleAutoRefresh() {
         var checkbox = document.getElementById('auto-refresh-check');
         if (refreshTimer) {
             clearInterval(refreshTimer);
             refreshTimer = null;
         }
-
         if (checkbox.checked) {
-            // 立即执行一次静默刷新
-            // performQuery(true); 
-            // 开启定时器 10秒
             refreshTimer = setInterval(function () {
-                // 只有在相对模式下，或者自定义模式下才刷新
-                // 这里逻辑是：只要开启就刷新当前参数
-                performQuery(true); // true 表示静默刷新
+                performQuery(true);
             }, 10000);
         }
     }
 
     window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
-        if (myChart) {
-            // 触发重绘
-            performQuery(true);
-        }
+        if (myChart) performQuery(true);
     });
 
     document.addEventListener('DOMContentLoaded', function () {
         initChart();
-        // 默认展示12小时 (第3个按钮)
         var buttons = document.querySelectorAll('#preset-buttons button');
         if (buttons.length > 2) {
             setRelativeTime(12, buttons[2]);
         } else {
             setRelativeTime(1, buttons[0]);
         }
-
-        // 初始化自动刷新
         toggleAutoRefresh();
     });
 

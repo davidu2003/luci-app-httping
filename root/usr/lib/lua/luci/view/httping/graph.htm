@@ -13,7 +13,6 @@
         flex-direction: column;
         gap: 15px;
         box-sizing: border-box;
-        /* 防止 padding 撑大 */
         width: 100%;
     }
 
@@ -26,16 +25,13 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         position: relative;
         box-sizing: border-box;
-        /* 关键：防止 padding 撑大宽度 */
         overflow: hidden;
-        /* 关键：强制裁剪溢出内容 */
         width: 100%;
     }
 
     .chart-div {
         width: 100%;
         min-width: 0;
-        /* Flex/Grid 布局下防止溢出的关键属性 */
         height: 500px;
         box-sizing: border-box;
     }
@@ -254,7 +250,6 @@
 </div>
 
 <div class="chart-wrapper">
-    <!-- 图表容器 -->
     <div id="main-chart" class="chart-div"></div>
 </div>
 
@@ -292,8 +287,6 @@
         }
         myChart = echarts.init(chartDom);
 
-        // 【关键修复】使用 ResizeObserver 监听容器大小变化
-        // 这解决了从设置页切换回来时图表宽度溢出的问题
         if (window.ResizeObserver) {
             var ro = new ResizeObserver(function (entries) {
                 myChart.resize();
@@ -301,11 +294,11 @@
             ro.observe(chartDom);
             ro.observe(document.querySelector('.chart-wrapper'));
         } else {
-            // 降级兼容：简单的延时重绘
             setTimeout(function () { myChart.resize(); }, 500);
         }
     }
 
+    // 增加 preserveZoom 参数
     function processAndRender(rawData, preserveZoom) {
         cachedData = rawData || [];
 
@@ -397,31 +390,23 @@
             activeServers.add(name);
             element.classList.add('active');
         }
+        // 切换服务器时，保持当前缩放状态，体验更好
         processAndRender(cachedData, true);
     }
 
     function toggleClipping() {
         var checkbox = document.getElementById('clip-peaks-check');
         isClippingMode = checkbox.checked;
+        // 切换削峰时，保持缩放
         processAndRender(cachedData, true);
     }
 
+    // 核心修改：增加 preserveZoom 参数
     function updateChartDisplay(groupedData, lossData, preserveZoom) {
         var theme = getChartTheme();
         var seriesList = [];
         var legendData = [];
         var colorIdx = 0;
-
-        var start = 0;
-        var end = 100;
-
-        if (preserveZoom && myChart) {
-            var opts = myChart.getOption();
-            if (opts && opts.dataZoom && opts.dataZoom.length > 0) {
-                start = opts.dataZoom[0].start;
-                end = opts.dataZoom[0].end;
-            }
-        }
 
         var isFilterMode = activeServers.size > 0;
 
@@ -468,6 +453,17 @@
 
         if (seriesList.length === 0 && isFilterMode) {
             // silent
+        }
+
+        // 【关键逻辑】获取当前缩放状态
+        var startZoom = 0;
+        var endZoom = 100;
+        if (preserveZoom && myChart) {
+            var currentOpt = myChart.getOption();
+            if (currentOpt && currentOpt.dataZoom && currentOpt.dataZoom.length > 0) {
+                startZoom = currentOpt.dataZoom[0].start;
+                endZoom = currentOpt.dataZoom[0].end;
+            }
         }
 
         var option = {
@@ -519,9 +515,10 @@
                 axisLabel: { color: theme.textColor, formatter: '{value} ms' },
                 splitLine: { lineStyle: { color: theme.splitLine } }
             },
+            // 【关键逻辑】应用缩放状态
             dataZoom: [
-                { type: 'inside', start: start, end: end },
-                { type: 'slider', start: start, end: end, bottom: 25, height: 20 }
+                { type: 'inside', start: startZoom, end: endZoom },
+                { type: 'slider', start: startZoom, end: endZoom, bottom: 25, height: 20 }
             ],
             series: seriesList
         };
@@ -529,6 +526,8 @@
         myChart.setOption(option, true);
     }
 
+    // 增加 isSilent 和 isRefresh 参数
+    // isRefresh = true 代表是自动刷新或局部更新，需要保持 Zoom
     function fetchData(startTs, endTs, isSilent) {
         if (!myChart) initChart();
 
@@ -542,6 +541,7 @@
             .then(json => {
                 document.getElementById('status-text').innerText = "更新于 " + new Date().toLocaleTimeString();
                 if (!isSilent) myChart.hideLoading();
+                // 关键点：如果是静默刷新(自动刷新)，则传入 true 以保持 Zoom
                 processAndRender(json, isSilent);
             })
             .catch(err => {
@@ -559,6 +559,7 @@
         buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
         if (btnElement) { btnElement.classList.remove('btn-neutral'); btnElement.classList.add('btn-active'); }
 
+        // 切换时间段时，通常希望重置视图，所以 isSilent=false
         performQuery(false);
     }
 
@@ -600,6 +601,7 @@
         }
         if (checkbox.checked) {
             refreshTimer = setInterval(function () {
+                // 自动刷新：传入 true (isSilent)，在 fetchData 中会透传给 processAndRender 开启 preserveZoom
                 performQuery(true);
             }, 10000);
         }
@@ -609,7 +611,6 @@
         if (myChart) performQuery(true);
     });
 
-    // 全局窗口 Resize 监听
     window.addEventListener('resize', function () { if (myChart) myChart.resize(); });
 
     document.addEventListener('DOMContentLoaded', function () {

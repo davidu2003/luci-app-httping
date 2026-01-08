@@ -1,474 +1,517 @@
 <%+header%>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
-    <style>
-        /* 容器样式 */
-        .toolbar-container {
-            background: var(--toolbar-bg, #f8f8f8);
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color, #ddd);
-            margin-bottom: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+<style>
+    /* 容器样式 */
+    .toolbar-container {
+        background: var(--toolbar-bg, #f8f8f8);
+        padding: 15px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color, #ddd);
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
 
-        .chart-wrapper {
-            background: var(--chart-bg, #fff);
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color, #ddd);
-            margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            position: relative;
-        }
+    .chart-wrapper {
+        background: var(--chart-bg, #fff);
+        padding: 15px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color, #ddd);
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        position: relative;
+    }
 
-        .chart-div {
-            width: 100%;
-            height: 500px;
-        }
+    .chart-div {
+        width: 100%;
+        height: 500px;
+    }
 
-        /* 按钮组与输入框样式 */
-        .control-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
+    /* 按钮组与输入框样式 */
+    .control-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+    }
 
-        .control-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-        }
+    .control-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
 
-        input[type="datetime-local"] {
-            padding: 5px;
-            border: 1px solid var(--border-color, #ccc);
-            border-radius: 4px;
-            background: var(--input-bg, #fff);
-            color: var(--text-color, #333);
-        }
+    input[type="datetime-local"] {
+        padding: 5px;
+        border: 1px solid var(--border-color, #ccc);
+        border-radius: 4px;
+        background: var(--input-bg, #fff);
+        color: var(--text-color, #333);
+    }
 
-        /* 服务器筛选标签样式 */
-        .server-filter-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border-color);
-        }
+    /* 复选框样式 */
+    .checkbox-label {
+        font-size: 13px;
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        user-select: none;
+    }
 
-        .server-chip {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            cursor: pointer;
-            border: 1px solid var(--border-color);
-            background: var(--chip-bg, #eee);
-            color: var(--text-color, #333);
-            transition: all 0.2s;
-            user-select: none;
-        }
+    /* 服务器筛选标签样式 */
+    .server-filter-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border-color);
+    }
 
-        /* 选中状态 */
-        .server-chip.active {
-            background: #0069d6;
-            color: #fff;
-            border-color: #0069d6;
-            box-shadow: 0 2px 4px rgba(0, 105, 214, 0.3);
-        }
+    .server-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background: var(--chip-bg, #eee);
+        color: var(--text-color, #333);
+        transition: all 0.2s;
+        user-select: none;
+    }
 
-        .server-chip:hover {
-            opacity: 0.9;
-        }
+    /* 选中状态 */
+    .server-chip.active {
+        background: #0069d6;
+        color: #fff;
+        border-color: #0069d6;
+        box-shadow: 0 2px 4px rgba(0, 105, 214, 0.3);
+    }
 
-        /* 丢包率颜色定义 */
-        .loss-text {
-            margin-left: 2px;
-            font-weight: bold;
-        }
+    .server-chip:hover {
+        opacity: 0.9;
+    }
 
-        .loss-good {
-            color: #3ba272;
-        }
+    /* 丢包率颜色定义 */
+    .loss-text {
+        margin-left: 2px;
+        font-weight: bold;
+    }
 
-        .loss-med {
-            color: #faad14;
-        }
+    .loss-good {
+        color: #3ba272;
+    }
 
-        .loss-bad {
-            color: #ff4d4f;
-        }
+    .loss-med {
+        color: #faad14;
+    }
 
-        .server-chip.active .loss-good {
-            color: #d9f7be;
-        }
+    .loss-bad {
+        color: #ff4d4f;
+    }
 
-        .server-chip.active .loss-med {
-            color: #fffb8f;
-        }
+    .server-chip.active .loss-good {
+        color: #d9f7be;
+    }
 
-        .server-chip.active .loss-bad {
-            color: #ffccc7;
-        }
+    .server-chip.active .loss-med {
+        color: #fffb8f;
+    }
 
-        /* 深浅模式 CSS 变量 */
+    .server-chip.active .loss-bad {
+        color: #ffccc7;
+    }
+
+    /* 深浅模式 CSS 变量 */
+    :root {
+        --toolbar-bg: #f8f8f8;
+        --chart-bg: #fff;
+        --border-color: #ddd;
+        --text-color: #333;
+        --input-bg: #fff;
+        --chip-bg: #f0f0f0;
+    }
+
+    @media (prefers-color-scheme: dark) {
         :root {
-            --toolbar-bg: #f8f8f8;
-            --chart-bg: #fff;
-            --border-color: #ddd;
-            --text-color: #333;
-            --input-bg: #fff;
-            --chip-bg: #f0f0f0;
+            --toolbar-bg: #2a2a2a;
+            --chart-bg: #333;
+            --border-color: #444;
+            --text-color: #eee;
+            --input-bg: #444;
+            --chip-bg: #444;
         }
+    }
 
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --toolbar-bg: #2a2a2a;
-                --chart-bg: #333;
-                --border-color: #444;
-                --text-color: #eee;
-                --input-bg: #444;
-                --chip-bg: #444;
-            }
-        }
+    .cbi-button-custom {
+        padding: 6px 12px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 13px;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+    }
 
-        .cbi-button-custom {
-            padding: 6px 12px;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 13px;
-            border: 1px solid transparent;
-            transition: all 0.2s;
-        }
+    .btn-neutral {
+        background: #eee;
+        color: #333;
+    }
 
+    .btn-active {
+        background: #0069d6;
+        color: #fff;
+    }
+
+    @media (prefers-color-scheme: dark) {
         .btn-neutral {
-            background: #eee;
-            color: #333;
+            background: #444;
+            color: #eee;
+            border-color: #555;
         }
+    }
 
-        .btn-active {
-            background: #0069d6;
-            color: #fff;
-        }
+    .status-text {
+        font-size: 12px;
+        color: var(--text-color);
+        opacity: 0.7;
+        margin-left: 10px;
+    }
+</style>
 
-        @media (prefers-color-scheme: dark) {
-            .btn-neutral {
-                background: #444;
-                color: #eee;
-                border-color: #555;
-            }
-        }
+<h2>
+    <%=translate("网络延迟趋势图")%>
+</h2>
 
-        .status-text {
-            font-size: 12px;
-            color: var(--text-color);
-            opacity: 0.7;
-            margin-left: 10px;
-        }
-    </style>
-
-    <h2>
-        <%=translate("网络延迟趋势图")%>
-    </h2>
-
-    <div class="toolbar-container">
-        <div class="control-row">
-            <div class="control-group" id="preset-buttons">
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(1, this)">1小时</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(6, this)">6小时</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(12, this)">12小时</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(24, this)">24小时</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(168, this)">7天</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(720, this)">1月</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(4320, this)">6月</button>
-                <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(8760, this)">1年</button>
-            </div>
+<div class="toolbar-container">
+    <div class="control-row">
+        <div class="control-group" id="preset-buttons">
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(1, this)">1小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(6, this)">6小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(12, this)">12小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(24, this)">24小时</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(168, this)">7天</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(720, this)">1月</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(4320, this)">6月</button>
+            <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(8760, this)">1年</button>
         </div>
-
-        <div class="control-row">
-            <div class="control-group">
-                <span style="color: var(--text-color); font-size: 13px;">自定义范围:</span>
-                <input type="datetime-local" id="start-time">
-                <span style="color: var(--text-color);">-</span>
-                <input type="datetime-local" id="end-time">
-                <button class="cbi-button-custom btn-active" onclick="setCustomTime()">查询</button>
-                <span class="status-text" id="status-text">就绪</span>
-            </div>
-        </div>
-
-        <div class="server-filter-container" id="server-filters">
-            <span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>
+        <!-- 自动刷新开关 -->
+        <div class="control-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="auto-refresh-check" onchange="toggleAutoRefresh()" checked>
+                自动刷新 (10s)
+            </label>
         </div>
     </div>
 
-    <div class="chart-wrapper">
-        <div id="main-chart" class="chart-div"></div>
+    <div class="control-row">
+        <div class="control-group">
+            <span style="color: var(--text-color); font-size: 13px;">自定义范围:</span>
+            <input type="datetime-local" id="start-time">
+            <span style="color: var(--text-color);">-</span>
+            <input type="datetime-local" id="end-time">
+            <button class="cbi-button-custom btn-active" onclick="setCustomTime()">查询</button>
+            <span class="status-text" id="status-text">就绪</span>
+        </div>
     </div>
 
-    <script type="text/javascript">
-        var api_url = '<%=luci.dispatcher.build_url("admin", "services", "httping", "get_data")%>';
-        var myChart = null;
-        var cachedData = [];
-        var activeServers = new Set();
+    <div class="server-filter-container" id="server-filters">
+        <span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>
+    </div>
+</div>
 
-        var colorPalette = [
-            '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'
-        ];
+<div class="chart-wrapper">
+    <div id="main-chart" class="chart-div"></div>
+</div>
 
-        function isDarkMode() { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+<script type="text/javascript">
+    var api_url = '<%=luci.dispatcher.build_url("admin", "services", "httping", "get_data")%>';
+    var myChart = null;
+    var cachedData = [];
+    var activeServers = new Set();
 
-        function getChartTheme() {
-            var isDark = isDarkMode();
-            return {
-                textColor: isDark ? '#eee' : '#333',
-                lineColor: isDark ? '#555' : '#ccc',
-                splitLine: isDark ? '#444' : '#eee',
-                tooltipBg: isDark ? 'rgba(50,50,50,0.9)' : 'rgba(255,255,255,0.9)'
-            };
+    // 自动刷新相关变量
+    var refreshTimer = null;
+    var currentRelativeHours = 12; // 记录当前选择的相对时间长度
+    var isCustomMode = false;      // 是否处于自定义时间模式
+
+    var colorPalette = [
+        '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'
+    ];
+
+    function isDarkMode() { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+
+    function getChartTheme() {
+        var isDark = isDarkMode();
+        return {
+            textColor: isDark ? '#eee' : '#333',
+            lineColor: isDark ? '#555' : '#ccc',
+            splitLine: isDark ? '#444' : '#eee',
+            tooltipBg: isDark ? 'rgba(50,50,50,0.9)' : 'rgba(255,255,255,0.9)'
+        };
+    }
+
+    function initChart() {
+        if (myChart != null && myChart != "" && myChart != undefined) {
+            myChart.dispose();
         }
+        myChart = echarts.init(document.getElementById('main-chart'));
+    }
 
-        function initChart() {
-            if (myChart != null && myChart != "" && myChart != undefined) {
-                myChart.dispose();
-            }
-            myChart = echarts.init(document.getElementById('main-chart'));
-        }
+    function processAndRender(rawData) {
+        cachedData = rawData || [];
 
-        function processAndRender(rawData) {
-            cachedData = rawData || [];
+        var groupedData = {};
+        var lossData = {};
+        var serverStats = {};
 
-            var groupedData = {};
-            var lossData = {}; // 存储丢包点的数据
-            var serverStats = {};
-
-            cachedData.forEach(function (item) {
-                if (!groupedData[item.server_name]) {
-                    groupedData[item.server_name] = [];
-                    lossData[item.server_name] = [];
-                    serverStats[item.server_name] = { total: 0, loss: 0 };
-                }
-
-                serverStats[item.server_name].total++;
-
-                if (item.duration === null) {
-                    serverStats[item.server_name].loss++;
-                    // 丢包点：为了在图表上显示，赋值为 0 (Y轴底部)
-                    lossData[item.server_name].push([item.timestamp * 1000, 0]);
-                }
-
-                // 正常折线数据
-                groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
-            });
-
-            renderFilterChips(serverStats);
-            updateChartDisplay(groupedData, lossData);
-        }
-
-        function renderFilterChips(stats) {
-            var container = document.getElementById('server-filters');
-
-            container.innerHTML = '<span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>';
-
-            Object.keys(stats).forEach(function (name) {
-                var total = stats[name].total;
-                var lossVal = total > 0 ? (stats[name].loss / total * 100) : 0;
-                var lossRateStr = lossVal.toFixed(2);
-
-                var chip = document.createElement('div');
-
-                chip.className = 'server-chip ' + (activeServers.has(name) ? 'active' : '');
-                chip.onclick = function () { toggleServer(name, this); };
-
-                var badgeClass = 'loss-good';
-                if (lossVal > 10) {
-                    badgeClass = 'loss-bad';
-                } else if (lossVal >= 5) {
-                    badgeClass = 'loss-med';
-                }
-
-                chip.innerHTML = `${name}<span class="loss-text ${badgeClass}">(${lossRateStr}%)</span>`;
-
-                container.appendChild(chip);
-            });
-        }
-
-        function toggleServer(name, element) {
-            if (activeServers.has(name)) {
-                activeServers.delete(name);
-                element.classList.remove('active');
-            } else {
-                activeServers.add(name);
-                element.classList.add('active');
+        cachedData.forEach(function (item) {
+            if (!groupedData[item.server_name]) {
+                groupedData[item.server_name] = [];
+                lossData[item.server_name] = [];
+                serverStats[item.server_name] = { total: 0, loss: 0 };
             }
 
-            // 重新构建数据 (需要重新分离折线数据和丢包数据)
-            var groupedData = {};
-            var lossData = {};
-            cachedData.forEach(function (item) {
-                if (!groupedData[item.server_name]) {
-                    groupedData[item.server_name] = [];
-                    lossData[item.server_name] = [];
-                }
-                if (item.duration === null) {
-                    lossData[item.server_name].push([item.timestamp * 1000, 0]);
-                }
-                groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
-            });
+            serverStats[item.server_name].total++;
 
-            updateChartDisplay(groupedData, lossData);
+            if (item.duration === null) {
+                serverStats[item.server_name].loss++;
+                lossData[item.server_name].push([item.timestamp * 1000, 0]);
+            }
+
+            groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
+        });
+
+        renderFilterChips(serverStats);
+        updateChartDisplay(groupedData, lossData);
+    }
+
+    function renderFilterChips(stats) {
+        var container = document.getElementById('server-filters');
+
+        // 记录当前的滚动位置，防止刷新时跳动（虽然这里是重建DOM，但影响不大）
+        container.innerHTML = '<span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>';
+
+        Object.keys(stats).forEach(function (name) {
+            var total = stats[name].total;
+            var lossVal = total > 0 ? (stats[name].loss / total * 100) : 0;
+            var lossRateStr = lossVal.toFixed(2);
+
+            var chip = document.createElement('div');
+
+            chip.className = 'server-chip ' + (activeServers.has(name) ? 'active' : '');
+            chip.onclick = function () { toggleServer(name, this); };
+
+            var badgeClass = 'loss-good';
+            if (lossVal > 10) {
+                badgeClass = 'loss-bad';
+            } else if (lossVal >= 5) {
+                badgeClass = 'loss-med';
+            }
+
+            chip.innerHTML = `${name}<span class="loss-text ${badgeClass}">(${lossRateStr}%)</span>`;
+
+            container.appendChild(chip);
+        });
+    }
+
+    function toggleServer(name, element) {
+        if (activeServers.has(name)) {
+            activeServers.delete(name);
+            element.classList.remove('active');
+        } else {
+            activeServers.add(name);
+            element.classList.add('active');
         }
 
-        function updateChartDisplay(groupedData, lossData) {
-            var theme = getChartTheme();
-            var seriesList = [];
-            var legendData = [];
-            var colorIdx = 0;
+        // 重新构建数据 (客户端过滤)
+        var groupedData = {};
+        var lossData = {};
+        cachedData.forEach(function (item) {
+            if (!groupedData[item.server_name]) {
+                groupedData[item.server_name] = [];
+                lossData[item.server_name] = [];
+            }
+            if (item.duration === null) {
+                lossData[item.server_name].push([item.timestamp * 1000, 0]);
+            }
+            groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
+        });
 
-            var isFilterMode = activeServers.size > 0;
+        updateChartDisplay(groupedData, lossData);
+    }
 
-            Object.keys(groupedData).forEach(function (serverName) {
-                if (isFilterMode && !activeServers.has(serverName)) return;
+    function updateChartDisplay(groupedData, lossData) {
+        var theme = getChartTheme();
+        var seriesList = [];
+        var legendData = [];
+        var colorIdx = 0;
 
-                legendData.push(serverName);
-                var currentColor = colorPalette[colorIdx % colorPalette.length];
+        var isFilterMode = activeServers.size > 0;
 
-                // 1. 折线图 Series
+        Object.keys(groupedData).forEach(function (serverName) {
+            if (isFilterMode && !activeServers.has(serverName)) return;
+
+            legendData.push(serverName);
+            var currentColor = colorPalette[colorIdx % colorPalette.length];
+
+            seriesList.push({
+                name: serverName,
+                type: 'line',
+                connectNulls: false,
+                showSymbol: false,
+                smooth: true,
+                sampling: 'lttb',
+                itemStyle: { color: currentColor },
+                data: groupedData[serverName]
+            });
+
+            if (lossData[serverName] && lossData[serverName].length > 0) {
                 seriesList.push({
-                    name: serverName,
-                    type: 'line',
-                    connectNulls: false,
-                    showSymbol: false,
-                    smooth: true,
-                    sampling: 'lttb',
-                    itemStyle: { color: currentColor },
-                    data: groupedData[serverName]
+                    name: serverName + ' (丢包)',
+                    type: 'scatter',
+                    symbol: 'emptyCircle',
+                    symbolSize: 6,
+                    itemStyle: {
+                        color: '#ff4d4f',
+                        borderWidth: 2
+                    },
+                    data: lossData[serverName],
+                    showInLegend: false,
+                    tooltip: {
+                        formatter: function (params) {
+                            return `${params.marker}${serverName}: <b>丢包</b><br/>${params.axisValueLabel}`;
+                        }
+                    },
+                    z: 10
                 });
-
-                // 2. 丢包散点 Series (空心红点)
-                if (lossData[serverName] && lossData[serverName].length > 0) {
-                    seriesList.push({
-                        name: serverName + ' (丢包)', // 这个名字主要用于内部逻辑，图例不显示
-                        type: 'scatter',
-                        symbol: 'emptyCircle',
-                        symbolSize: 6, // 小圆点大小
-                        itemStyle: {
-                            color: '#ff4d4f', // 红色
-                            borderWidth: 2
-                        },
-                        data: lossData[serverName],
-                        showInLegend: false, // 不在图例中显示单独的丢包项，保持界面整洁
-                        tooltip: {
-                            formatter: function (params) {
-                                return `${params.marker}${serverName}: <b>丢包</b><br/>${params.axisValueLabel}`;
-                            }
-                        },
-                        z: 10 // 确保显示在折线上层
-                    });
-                }
-
-                colorIdx++;
-            });
-
-            if (seriesList.length === 0 && isFilterMode) {
-                myChart.showLoading({ text: '未选中任何服务器', color: '#0069d6', textColor: theme.textColor, maskColor: 'transparent' });
-                return;
-            } else if (seriesList.length === 0 && !isFilterMode) {
-                myChart.showLoading({ text: '暂无数据', color: '#0069d6', textColor: theme.textColor, maskColor: 'transparent' });
-                return;
-            } else {
-                myChart.hideLoading();
             }
 
-            var option = {
-                backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    backgroundColor: theme.tooltipBg,
-                    textStyle: { color: theme.textColor },
-                    formatter: function (params) {
-                        var html = params[0].axisValueLabel + '<br/>';
-                        // 过滤掉 scatter 类型的 tooltip（已经在 scatter 内部定义了），
-                        // 或者在这里统一处理。因为 trigger: axis 会聚合所有点。
-                        params.forEach(item => {
-                            // 区分折线值和丢包点
-                            if (item.seriesType === 'line') {
-                                var val = item.value[1];
-                                var colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${item.color};"></span>`;
-                                html += `${colorSpan}${item.seriesName}: ${val !== null ? val.toFixed(1) + ' ms' : '<span style="color:#ff4d4f;font-weight:bold;">丢包</span>'}<br/>`;
-                            }
-                            // Scatter 类型在 axis tooltip 里通常不需要重复显示，除非是多点重合。
-                            // 由于折线数据里该点已经是 null (显示为"丢包"或者不显示)，这里可以不处理 scatter
-                        });
-                        return html;
-                    }
-                },
-                legend: {
-                    data: legendData,
-                    bottom: 0,
-                    textStyle: { color: theme.textColor }
-                },
-                grid: {
-                    left: '10', right: '30', top: '40', bottom: '10%',
-                    containLabel: true
-                },
-                xAxis: {
-                    type: 'time',
-                    boundaryGap: false,
-                    axisLabel: { color: theme.textColor },
-                    axisLine: { lineStyle: { color: theme.lineColor } },
-                    splitLine: { show: false }
-                },
-                yAxis: {
-                    type: 'value',
-                    scale: true,
-                    axisLabel: { color: theme.textColor, formatter: '{value} ms' },
-                    splitLine: { lineStyle: { color: theme.splitLine } }
-                },
-                dataZoom: [
-                    { type: 'inside', start: 0, end: 100 },
-                    { type: 'slider', start: 0, end: 100, bottom: 25, height: 20 }
-                ],
-                series: seriesList
-            };
+            colorIdx++;
+        });
 
-            myChart.setOption(option, true);
+        if (seriesList.length === 0 && isFilterMode) {
+            // 静默刷新时不显示Loading，只有初始化可能用到
+            // 这里为了体验，可以不clear，保留旧图表，或者显示空
         }
 
-        function fetchData(startTs, endTs) {
-            if (!myChart) initChart();
+        var option = {
+            backgroundColor: 'transparent',
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: theme.tooltipBg,
+                textStyle: { color: theme.textColor },
+                formatter: function (params) {
+                    var html = params[0].axisValueLabel + '<br/>';
+                    params.forEach(item => {
+                        if (item.seriesType === 'line') {
+                            var val = item.value[1];
+                            var colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${item.color};"></span>`;
+                            html += `${colorSpan}${item.seriesName}: ${val !== null ? val.toFixed(1) + ' ms' : '<span style="color:#ff4d4f;font-weight:bold;">丢包</span>'}<br/>`;
+                        }
+                    });
+                    return html;
+                }
+            },
+            legend: {
+                data: legendData,
+                bottom: 0,
+                textStyle: { color: theme.textColor }
+            },
+            grid: {
+                left: '10', right: '30', top: '40', bottom: '10%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'time',
+                boundaryGap: false,
+                axisLabel: { color: theme.textColor },
+                axisLine: { lineStyle: { color: theme.lineColor } },
+                splitLine: { show: false }
+            },
+            yAxis: {
+                type: 'value',
+                scale: true,
+                axisLabel: { color: theme.textColor, formatter: '{value} ms' },
+                splitLine: { lineStyle: { color: theme.splitLine } }
+            },
+            dataZoom: [
+                { type: 'inside', start: 0, end: 100 },
+                { type: 'slider', start: 0, end: 100, bottom: 25, height: 20 }
+            ],
+            series: seriesList
+        };
+
+        myChart.setOption(option, true);
+    }
+
+    // 增加 isSilent 参数，用于自动刷新时不显示 Loading 动画
+    function fetchData(startTs, endTs, isSilent) {
+        if (!myChart) initChart();
+
+        if (!isSilent) {
             myChart.showLoading({ text: '加载数据中...', color: '#0069d6', textColor: getChartTheme().textColor });
             document.getElementById('status-text').innerText = "加载中...";
-
-            fetch(api_url + '?start=' + startTs + '&end=' + endTs)
-                .then(res => res.json())
-                .then(json => {
-                    document.getElementById('status-text').innerText = "更新于 " + new Date().toLocaleTimeString();
-                    myChart.hideLoading();
-                    processAndRender(json);
-                })
-                .catch(err => {
-                    console.error(err);
-                    document.getElementById('status-text').innerText = "加载失败";
-                    myChart.hideLoading();
-                });
         }
 
-        function setRelativeTime(hours, btnElement) {
-            var buttons = document.querySelectorAll('#preset-buttons button');
-            buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
-            if (btnElement) { btnElement.classList.remove('btn-neutral'); btnElement.classList.add('btn-active'); }
+        fetch(api_url + '?start=' + startTs + '&end=' + endTs)
+            .then(res => res.json())
+            .then(json => {
+                document.getElementById('status-text').innerText = "更新于 " + new Date().toLocaleTimeString();
+                if (!isSilent) myChart.hideLoading();
+                processAndRender(json);
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('status-text').innerText = "加载失败";
+                if (!isSilent) myChart.hideLoading();
+            });
+    }
 
-            var end = Math.floor(Date.now() / 1000);
-            var start = end - (hours * 3600);
+    function setRelativeTime(hours, btnElement) {
+        isCustomMode = false;
+        currentRelativeHours = hours; // 记录当前选择
 
+        var buttons = document.querySelectorAll('#preset-buttons button');
+        buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
+        if (btnElement) { btnElement.classList.remove('btn-neutral'); btnElement.classList.add('btn-active'); }
+
+        performQuery(false); // 手动点击显示Loading
+    }
+
+    function setCustomTime() {
+        isCustomMode = true;
+        // 清除按钮状态
+        var buttons = document.querySelectorAll('#preset-buttons button');
+        buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
+
+        performQuery(false);
+    }
+
+    // 执行查询的核心函数
+    function performQuery(isSilent) {
+        var start, end;
+
+        if (isCustomMode) {
+            // 自定义模式：时间范围固定，自动刷新意义不大，但也可以刷新该范围内是否有新数据修正
+            var startVal = document.getElementById('start-time').value;
+            var endVal = document.getElementById('end-time').value;
+            if (!startVal || !endVal) return;
+            start = Math.floor(new Date(startVal).getTime() / 1000);
+            end = Math.floor(new Date(endVal).getTime() / 1000);
+        } else {
+            // 相对模式：时间随当前时间流动
+            end = Math.floor(Date.now() / 1000);
+            start = end - (currentRelativeHours * 3600);
+
+            // 更新输入框显示
             var toLocalISO = function (ts) {
                 var d = new Date(ts * 1000);
                 var offset = d.getTimezoneOffset() * 60000;
@@ -476,49 +519,52 @@
             };
             document.getElementById('start-time').value = toLocalISO(start);
             document.getElementById('end-time').value = toLocalISO(end);
-
-            fetchData(start, end);
         }
 
-        function setCustomTime() {
-            var startVal = document.getElementById('start-time').value;
-            var endVal = document.getElementById('end-time').value;
-            if (!startVal || !endVal) { alert("请选择开始和结束时间"); return; }
-            var startTs = Math.floor(new Date(startVal).getTime() / 1000);
-            var endTs = Math.floor(new Date(endVal).getTime() / 1000);
-            if (startTs >= endTs) { alert("开始时间必须早于结束时间"); return; }
+        fetchData(start, end, isSilent);
+    }
 
-            var buttons = document.querySelectorAll('#preset-buttons button');
-            buttons.forEach(b => { b.classList.remove('btn-active'); b.classList.add('btn-neutral'); });
-            fetchData(startTs, endTs);
+    // 自动刷新逻辑
+    function toggleAutoRefresh() {
+        var checkbox = document.getElementById('auto-refresh-check');
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
         }
 
-        window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
-            if (myChart) {
-                var groupedData = {};
-                var lossData = {};
-                cachedData.forEach(function (item) {
-                    if (!groupedData[item.server_name]) {
-                        groupedData[item.server_name] = [];
-                        lossData[item.server_name] = [];
-                    }
-                    if (item.duration === null) lossData[item.server_name].push([item.timestamp * 1000, 0]);
-                    groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
-                });
-                updateChartDisplay(groupedData, lossData);
-            }
-        });
+        if (checkbox.checked) {
+            // 立即执行一次静默刷新
+            // performQuery(true); 
+            // 开启定时器 10秒
+            refreshTimer = setInterval(function () {
+                // 只有在相对模式下，或者自定义模式下才刷新
+                // 这里逻辑是：只要开启就刷新当前参数
+                performQuery(true); // true 表示静默刷新
+            }, 10000);
+        }
+    }
 
-        document.addEventListener('DOMContentLoaded', function () {
-            initChart();
-            var buttons = document.querySelectorAll('#preset-buttons button');
-            if (buttons.length > 2) {
-                setRelativeTime(12, buttons[2]);
-            } else {
-                setRelativeTime(1, buttons[0]);
-            }
-        });
+    window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
+        if (myChart) {
+            // 触发重绘
+            performQuery(true);
+        }
+    });
 
-        window.addEventListener('resize', function () { if (myChart) myChart.resize(); });
-    </script>
-    <%+footer%>
+    document.addEventListener('DOMContentLoaded', function () {
+        initChart();
+        // 默认展示12小时 (第3个按钮)
+        var buttons = document.querySelectorAll('#preset-buttons button');
+        if (buttons.length > 2) {
+            setRelativeTime(12, buttons[2]);
+        } else {
+            setRelativeTime(1, buttons[0]);
+        }
+
+        // 初始化自动刷新
+        toggleAutoRefresh();
+    });
+
+    window.addEventListener('resize', function () { if (myChart) myChart.resize(); });
+</script>
+<%+footer%>

@@ -549,7 +549,8 @@
                 },
                 max: function(value) {
                     if (isClippingMode) {
-                        return value.max + (value.max - value.min) * 2;
+                        var rawMax = value.max + (value.max - value.min) * 2;
+                        return Math.ceil(rawMax / 10) * 10;
                     }
                     return value.max;
                 }

@@ -77,6 +77,7 @@
             user-select: none;
         }
 
+        /* 选中状态 */
         .server-chip.active {
             background: #0069d6;
             color: #fff;
@@ -88,17 +89,35 @@
             opacity: 0.9;
         }
 
-        .loss-high {
-            color: #ff4d4f;
-            font-weight: bold;
+        /* 丢包率颜色定义 */
+        .loss-text {
             margin-left: 2px;
+            font-weight: bold;
         }
 
-        .server-chip.active .loss-high {
-            color: #ffcccc;
+        .loss-good {
+            color: #3ba272;
         }
 
-        /* 选中状态下丢包文字颜色 */
+        .loss-med {
+            color: #faad14;
+        }
+
+        .loss-bad {
+            color: #ff4d4f;
+        }
+
+        .server-chip.active .loss-good {
+            color: #d9f7be;
+        }
+
+        .server-chip.active .loss-med {
+            color: #fffb8f;
+        }
+
+        .server-chip.active .loss-bad {
+            color: #ffccc7;
+        }
 
         /* 深浅模式 CSS 变量 */
         :root {
@@ -121,7 +140,6 @@
             }
         }
 
-        /* 按钮通用样式 */
         .cbi-button-custom {
             padding: 6px 12px;
             cursor: pointer;
@@ -162,7 +180,6 @@
     </h2>
 
     <div class="toolbar-container">
-        <!-- 第一行：时间选择 -->
         <div class="control-row">
             <div class="control-group" id="preset-buttons">
                 <button class="cbi-button-custom btn-neutral" onclick="setRelativeTime(1, this)">1小时</button>
@@ -176,7 +193,6 @@
             </div>
         </div>
 
-        <!-- 第二行：自定义时间与状态 -->
         <div class="control-row">
             <div class="control-group">
                 <span style="color: var(--text-color); font-size: 13px;">自定义范围:</span>
@@ -188,10 +204,8 @@
             </div>
         </div>
 
-        <!-- 第三行：服务器筛选 (带丢包率) -->
         <div class="server-filter-container" id="server-filters">
             <span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>
-            <!-- 动态生成标签 -->
         </div>
     </div>
 
@@ -202,10 +216,9 @@
     <script type="text/javascript">
         var api_url = '<%=luci.dispatcher.build_url("admin", "services", "httping", "get_data")%>';
         var myChart = null;
-        var cachedData = []; // 缓存当前时间段的所有数据
-        var activeServers = new Set(); // 存储当前选中的服务器名称
+        var cachedData = [];
+        var activeServers = new Set();
 
-        // 颜色池，用于区分不同服务器曲线
         var colorPalette = [
             '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'
         ];
@@ -233,48 +246,55 @@
             cachedData = rawData || [];
 
             var groupedData = {};
+            var lossData = {}; // 存储丢包点的数据
             var serverStats = {};
 
             cachedData.forEach(function (item) {
                 if (!groupedData[item.server_name]) {
                     groupedData[item.server_name] = [];
+                    lossData[item.server_name] = [];
                     serverStats[item.server_name] = { total: 0, loss: 0 };
                 }
 
                 serverStats[item.server_name].total++;
+
                 if (item.duration === null) {
                     serverStats[item.server_name].loss++;
+                    // 丢包点：为了在图表上显示，赋值为 0 (Y轴底部)
+                    lossData[item.server_name].push([item.timestamp * 1000, 0]);
                 }
 
+                // 正常折线数据
                 groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
             });
 
             renderFilterChips(serverStats);
-            updateChartDisplay(groupedData);
+            updateChartDisplay(groupedData, lossData);
         }
 
         function renderFilterChips(stats) {
             var container = document.getElementById('server-filters');
-            var isFirstLoad = activeServers.size === 0;
 
             container.innerHTML = '<span style="color: var(--text-color); font-size: 13px; padding: 6px 0;">服务器筛选:</span>';
 
             Object.keys(stats).forEach(function (name) {
-                if (isFirstLoad) activeServers.add(name);
-
-                // 计算丢包率，保留2位小数
                 var total = stats[name].total;
-                var lossRate = total > 0 ? (stats[name].loss / total * 100).toFixed(2) : "0.00";
+                var lossVal = total > 0 ? (stats[name].loss / total * 100) : 0;
+                var lossRateStr = lossVal.toFixed(2);
 
                 var chip = document.createElement('div');
 
                 chip.className = 'server-chip ' + (activeServers.has(name) ? 'active' : '');
                 chip.onclick = function () { toggleServer(name, this); };
 
-                var badgeClass = parseFloat(lossRate) > 0 ? 'loss-high' : '';
+                var badgeClass = 'loss-good';
+                if (lossVal > 10) {
+                    badgeClass = 'loss-bad';
+                } else if (lossVal >= 5) {
+                    badgeClass = 'loss-med';
+                }
 
-                // 格式：服务器节点名称(0.02%)
-                chip.innerHTML = `${name}<span class="${badgeClass}">(${lossRate}%)</span>`;
+                chip.innerHTML = `${name}<span class="loss-text ${badgeClass}">(${lossRateStr}%)</span>`;
 
                 container.appendChild(chip);
             });
@@ -282,33 +302,45 @@
 
         function toggleServer(name, element) {
             if (activeServers.has(name)) {
-                if (activeServers.size > 1) {
-                    activeServers.delete(name);
-                    element.classList.remove('active');
-                }
+                activeServers.delete(name);
+                element.classList.remove('active');
             } else {
                 activeServers.add(name);
                 element.classList.add('active');
             }
 
+            // 重新构建数据 (需要重新分离折线数据和丢包数据)
             var groupedData = {};
+            var lossData = {};
             cachedData.forEach(function (item) {
-                if (!groupedData[item.server_name]) groupedData[item.server_name] = [];
+                if (!groupedData[item.server_name]) {
+                    groupedData[item.server_name] = [];
+                    lossData[item.server_name] = [];
+                }
+                if (item.duration === null) {
+                    lossData[item.server_name].push([item.timestamp * 1000, 0]);
+                }
                 groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
             });
-            updateChartDisplay(groupedData);
+
+            updateChartDisplay(groupedData, lossData);
         }
 
-        function updateChartDisplay(groupedData) {
+        function updateChartDisplay(groupedData, lossData) {
             var theme = getChartTheme();
             var seriesList = [];
             var legendData = [];
             var colorIdx = 0;
 
+            var isFilterMode = activeServers.size > 0;
+
             Object.keys(groupedData).forEach(function (serverName) {
-                if (!activeServers.has(serverName)) return;
+                if (isFilterMode && !activeServers.has(serverName)) return;
 
                 legendData.push(serverName);
+                var currentColor = colorPalette[colorIdx % colorPalette.length];
+
+                // 1. 折线图 Series
                 seriesList.push({
                     name: serverName,
                     type: 'line',
@@ -316,14 +348,40 @@
                     showSymbol: false,
                     smooth: true,
                     sampling: 'lttb',
-                    itemStyle: { color: colorPalette[colorIdx % colorPalette.length] },
+                    itemStyle: { color: currentColor },
                     data: groupedData[serverName]
                 });
+
+                // 2. 丢包散点 Series (空心红点)
+                if (lossData[serverName] && lossData[serverName].length > 0) {
+                    seriesList.push({
+                        name: serverName + ' (丢包)', // 这个名字主要用于内部逻辑，图例不显示
+                        type: 'scatter',
+                        symbol: 'emptyCircle',
+                        symbolSize: 6, // 小圆点大小
+                        itemStyle: {
+                            color: '#ff4d4f', // 红色
+                            borderWidth: 2
+                        },
+                        data: lossData[serverName],
+                        showInLegend: false, // 不在图例中显示单独的丢包项，保持界面整洁
+                        tooltip: {
+                            formatter: function (params) {
+                                return `${params.marker}${serverName}: <b>丢包</b><br/>${params.axisValueLabel}`;
+                            }
+                        },
+                        z: 10 // 确保显示在折线上层
+                    });
+                }
+
                 colorIdx++;
             });
 
-            if (seriesList.length === 0) {
-                myChart.showLoading({ text: '请至少选择一个服务器', color: '#0069d6', textColor: theme.textColor, maskColor: 'transparent' });
+            if (seriesList.length === 0 && isFilterMode) {
+                myChart.showLoading({ text: '未选中任何服务器', color: '#0069d6', textColor: theme.textColor, maskColor: 'transparent' });
+                return;
+            } else if (seriesList.length === 0 && !isFilterMode) {
+                myChart.showLoading({ text: '暂无数据', color: '#0069d6', textColor: theme.textColor, maskColor: 'transparent' });
                 return;
             } else {
                 myChart.hideLoading();
@@ -337,10 +395,17 @@
                     textStyle: { color: theme.textColor },
                     formatter: function (params) {
                         var html = params[0].axisValueLabel + '<br/>';
+                        // 过滤掉 scatter 类型的 tooltip（已经在 scatter 内部定义了），
+                        // 或者在这里统一处理。因为 trigger: axis 会聚合所有点。
                         params.forEach(item => {
-                            var val = item.value[1];
-                            var colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${item.color};"></span>`;
-                            html += `${colorSpan}${item.seriesName}: ${val !== null ? val.toFixed(1) + ' ms' : '超时'}<br/>`;
+                            // 区分折线值和丢包点
+                            if (item.seriesType === 'line') {
+                                var val = item.value[1];
+                                var colorSpan = `<span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${item.color};"></span>`;
+                                html += `${colorSpan}${item.seriesName}: ${val !== null ? val.toFixed(1) + ' ms' : '<span style="color:#ff4d4f;font-weight:bold;">丢包</span>'}<br/>`;
+                            }
+                            // Scatter 类型在 axis tooltip 里通常不需要重复显示，除非是多点重合。
+                            // 由于折线数据里该点已经是 null (显示为"丢包"或者不显示)，这里可以不处理 scatter
                         });
                         return html;
                     }
@@ -431,17 +496,21 @@
         window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
             if (myChart) {
                 var groupedData = {};
+                var lossData = {};
                 cachedData.forEach(function (item) {
-                    if (!groupedData[item.server_name]) groupedData[item.server_name] = [];
+                    if (!groupedData[item.server_name]) {
+                        groupedData[item.server_name] = [];
+                        lossData[item.server_name] = [];
+                    }
+                    if (item.duration === null) lossData[item.server_name].push([item.timestamp * 1000, 0]);
                     groupedData[item.server_name].push([item.timestamp * 1000, item.duration]);
                 });
-                updateChartDisplay(groupedData);
+                updateChartDisplay(groupedData, lossData);
             }
         });
 
         document.addEventListener('DOMContentLoaded', function () {
             initChart();
-            // 默认展示12小时 (第3个按钮，索引2)
             var buttons = document.querySelectorAll('#preset-buttons button');
             if (buttons.length > 2) {
                 setRelativeTime(12, buttons[2]);

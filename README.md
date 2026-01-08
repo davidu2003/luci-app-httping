@@ -27,19 +27,35 @@
 
 ## 编译与安装
 
-### 1. 准备 OpenWrt SDK 或源码环境
+### 方法 A：直接安装 (推荐)
+
+你可以直接从 [Releases](https://github.com/davidu2003/luci-app-httping/releases) 页面下载预编译好的 `.ipk` 文件。
+
+1.  根据你的路由器架构下载对应的 `.ipk` 文件。
+2.  将文件上传到路由器（例如 `/tmp` 目录）。
+3.  执行安装命令：
+
+```bash
+opkg update
+opkg install /tmp/luci-app-httping_*.ipk
+```
+
+### 方法 B：自行编译 (可选)
+
+如果你需要自行编译或集成到固件中，请参考以下步骤：
+
+#### 1. 准备 OpenWrt SDK 或源码环境
 确保你已经配置好了 OpenWrt 的编译环境。
 
-### 2. 获取源码
+#### 2. 获取源码
 将本仓库克隆到你的 OpenWrt 源码的 `package` 目录下：
 
 ```bash
 cd package/
-git clone https://github.com/your-repo/luci-app-httping.git
+git clone https://github.com/davidu2003/luci-app-httping.git
 ```
-*(请将 URL 替换为实际仓库地址)*
 
-### 3. 配置编译菜单
+#### 3. 配置编译菜单
 进入 OpenWrt 源码根目录，运行 menuconfig：
 
 ```bash
@@ -49,12 +65,12 @@ make menuconfig
 在菜单中找到并选中：
 `LuCI` -> `3. Applications` -> `luci-app-httping`
 
-### 4. 编译
+#### 4. 编译
 ```bash
 make package/luci-app-httping/compile V=s
 ```
 
-### 5. 安装
+#### 5. 安装
 编译完成后，生成的 `.ipk` 文件通常位于 `bin/packages/<arch>/base/` 目录下。上传到路由器并安装：
 
 ```bash

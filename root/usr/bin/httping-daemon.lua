@@ -105,7 +105,8 @@ local function do_tcping(url)
     end
     
     -- 4. 使用 poll 等待连接完成 (Timeout 2秒)
-    local pstat = nixio.poll({{fd=sock, events=nixio.const.POLLOUT}}, 2000)
+    -- POLLOUT 通常为 4
+    local pstat = nixio.poll({{fd=sock, events=4}}, 2000)
     
     local success = false
     if pstat and pstat > 0 then

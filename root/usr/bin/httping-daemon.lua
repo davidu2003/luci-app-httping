@@ -86,7 +86,7 @@ local function do_tcping(url)
     local target = addr_iter[1]
     
     -- 2. 创建 Socket
-    local sock = nixio.socket(target.family, target.socktype)
+    local sock = nixio.socket(target.family, "stream")
     if not sock then return nil end
     
     -- 设置非阻塞以便控制超时
